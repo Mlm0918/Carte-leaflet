@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Urbi GES - Carte Choroplèthe Bivariée Québec</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: white;
+    font-family: Arial, sans-serif;
+  }
+  #map {
+    width: 100%;
+    height: 90vh;
+    background: white;
+  }
+  /* Menus variables */
+  .selector-container {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(255,255,255,0.95);
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 0 6px rgba(0,0,0,0.15);
+    z-index: 1100;
+    font-family: Arial, sans-serif;
+  }
+  .selector-container label {
+    font-weight: bold;
+    font-size: 14px;
+  }
+  .selector-container select {
+    margin-left: 6px;
+    font-size: 14px;
+  }
+  /* Légende bivariée */
+  .legend {
+    position: absolute;
+    bottom: 30px;
+    right: 10px;
+    background: rgba(255,255,255,0.9);
+    border: 1px solid #999;
+    border-radius: 8px;
+    padding: 15px 18px;
+    font-size: 16px;
+    line-height: 1.3em;
+    box-shadow: 0 0 10px rgba(0,0,0,0.15);
+    z-index: 1100;
+    font-family: Arial, sans-serif;
+    width: 230px;
+    user-select: none;
+  }
+  .legend-title {
+    font-weight: bold;
+    font-size: 18px;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .legend-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 36px);
+    grid-template-rows: repeat(3, 36px);
+    gap: 3px;
+    margin-bottom: 6px;
+  }
+  .legend-grid div {
+    width: 36px;
+    height: 36px;
+  }
+  .legend-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-top: 3px;
+    user-select: text;
+  }
+  .legend-axis span {
+    flex: 1;
+    text-align: center;
+  }
+  .legend-help {
+    font-size: 12px;
+    margin-top: 8px;
+    color: #444;
+    line-height: 1.2em;
+    user-select: text;
+    cursor: default;
+  }
+  /* Échelle graphique */
+  .leaflet-control-scale {
+    background: transparent !important;
+    border: none !important;
+    font-family: Arial, sans-serif !important;
+    font-size: 12px !important;
+    box-shadow: none !important;
+  }
+  /* Labels NOM */
+  .label-tooltip {
+    font-family: Arial, sans-serif;
+    color: white;
+    font-size: 13px;
+    text-shadow: none;
+    background: none !important;
+    border: none !important;
+    pointer-events: none;
+  }
+  /* Onglet partenaires */
+  .partners {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(255,255,255,0.95);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    width: 190px;
+    box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    cursor: pointer;
+    user-select: none;
+    z-index: 1100;
+  }
+  .partners strong {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: bold;
+  }
+  .partners-content {
+    display: none;
+    margin-top: 6px;
+  }
+  .partners.open .partners-content {
+    display: block;
+  }
+  .partners-content a {
+    display: block;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .partners-content img {
+    max-height: 36px;
+    width: auto;
+    vertical-align: middle;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  .partners-content a:hover img {
+    transform: scale(1.1);
+    opacity: 0.85;
+  }
+  /* Auteurs + date */
+  .authors {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255,255,255,0.95);
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.4em;
+    text-align: right;
+    box-shadow: 0 0 10px rgba(0,0,0,0.12);
+    max-width: 280px;
+    z-index: 1100;
+    user-select: text;
+  }
+  .authors strong {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Menus variables -->
+<div class="selector-container">
+  <label for="xVariable">X (couleur horizontale) :</label>
+  <select id="xVariable">
+    <option value="PERIMETRE">PERIMETRE</option>
+    <option value="SUPERFICIE">SUPERFICIE</option>
+  </select>
+  <br><br>
+  <label for="yVariable">Y (couleur verticale) :</label>
+  <select id="yVariable">
+    <option value="SUPERFICIE">SUPERFICIE</option>
+    <option value="PERIMETRE">PERIMETRE</option>
+  </select>
+</div>
+
+<!-- Légende -->
+<div class="legend" id="legend">
+  <div class="legend-title">Légende bivariée</div>
+  <div class="legend-grid" id="legendGrid">
+    <!-- Cases de la grille insérées par JS -->
+  </div>
+  <div class="legend-axis" style="justify-content:flex-start;">
+    <span>↓ Plus petite valeur</span><span></span><span>→ Plus grande valeur</span>
+  </div>
+  <div class="legend-axis" style="justify-content:flex-end; margin-top: 2px;">
+    <span>↑ Plus grande valeur</span>
+  </div>
+  <div class="legend-help" title="Une carte bivariée utilise un dégradé croisé de couleurs pour représenter deux variables en même temps. Les teintes permettent d’interpréter simultanément les relations spatiales entre les deux indicateurs.">
+    Une carte bivariée combine deux variables en un seul symbole coloré.
+  </div>
+</div>
+
+<!-- Onglet partenaires -->
+<div class="partners" id="partners">
+  <strong>Partenaires</strong>
+  <div class="partners-content">
+    <a href="https://ieds.ulaval.ca/recherche/axes-de-developpement/relance-verte-et-economie-circulaire/urbi-ges" target="_blank" rel="noopener">
+      <img src="https://raw.githubusercontent.com/Mlm0918/Carte-leaflet/main/Urbi.png" alt="Urbi GES" style="max-height:36px;">
+    </a>
+    <a href="https://www.ulaval.ca" target="_blank" rel="noopener">
+      <img src="https://raw.githubusercontent.com/Mlm0918/Carte-leaflet/main/Ulaval.png" alt="Université Laval">
+    </a>
+    <a href="https://www.ihqeds.ulaval.ca" target="_blank" rel="noopener">
+      <img src="https://raw.githubusercontent.com/Mlm0918/Carte-leaflet/main/EDS.png" alt="Institut EDS">
+    </a>
+    <a href="https://www.canada.ca/fr/environnement-changement-climatique.html" target="_blank" rel="noopener">
+      <img src="https://raw.githubusercontent.com/Mlm0918/Carte-leaflet/main/ECCC.png" alt="ECCC">
+    </a>
+  </div>
+</div>
+
+<!-- Auteurs + date -->
+<div class="authors" id="authors">
+  <strong>Auteur.trice.s:</strong>
+  Maryam Naghdizadeganjahromi,<br>
+  Marius Le Maréchal,<br>
+  Sébastien Bruno<br><br>
+  <strong>Équipe de conception:</strong><br>
+  Colline Gombault,<br>
+  Valériane Champagne-Saint-Arnaud,<br>
+  Katherine Labonté,<br>
+  Stéphane Roche<br><br>
+  <span id="currentDate"></span>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // Initialisation carte centrée Québec
+  const map = L.map('map').setView([46.8139, -71.2082], 12);
+
+  // Fond blanc sans tuiles
+  L.tileLayer('', { attribution: '' }).addTo(map);
+
+  // Palette vert/gris personnalisée (plus contrastée)
+  // 3x3 matrice, y = variable verticale, x = variable horizontale
+  const colorMatrix = [
+    ['#d9e8d9', '#a9c8a9', '#73a673'], // y=0 (faible SUPERFICIE)
+    ['#bfc6be', '#8ba38a', '#5a7e5a'], // y=1
+    ['#8a8f87', '#5f6a5f', '#394339']  // y=2 (fort SUPERFICIE)
+  ];
+
+  // Générer la grille de couleur de la légende
+  const legendGrid = document.getElementById('legendGrid');
+  for(let y=2; y>=0; y--) {  // Pour avoir la plus petite en bas à gauche
+    for(let x=0; x<3; x++) {
+      const cell = document.createElement('div');
+      cell.style.backgroundColor = colorMatrix[y][x];
+      legendGrid.appendChild(cell);
+    }
+  }
+
+  // Fonction pour calculer quantiles (3 classes)
+  function getQuantiles(values, n=3) {
+    let sorted = [...values].sort((a,b) => a-b);
+    const thresholds = [];
+    for(let i=1; i<n; i++){
+      thresholds.push(sorted[Math.floor(i*sorted.length/n)]);
+    }
+    return values.map(v => {
+      for(let i=0; i<thresholds.length; i++){
+        if(v <= thresholds[i]) return i;
+      }
+      return thresholds.length;
+    });
+  }
+
+  // Fonction couleur selon quantiles
+  function getColor(x, y) {
+    return colorMatrix[y][x];
+  }
+
+  // Style des entités
+  function styleFeature(xVar, yVar, xQuant, yQuant) {
+    return function(feature) {
+      const xIdx = xQuant[feature.properties.id];
+      const yIdx = yQuant[feature.properties.id];
+      return {
+        fillColor: getColor(xIdx, yIdx),
+        weight: 1,
+        color: '#666',
+        dashArray: '3',
+        fillOpacity: 0.7
+      };
+    }
+  }
+
+  // Affichage tooltip NOM à partir zoom 13
+  function onEachFeature(feature, layer) {
+    if(feature.properties && feature.properties.NOM) {
+      layer.bindTooltip(feature.properties.NOM, {
+        permanent: false,
+        direction: 'center',
+        className: 'label-tooltip'
+      });
+    }
+  }
+
+  // Mise à jour carte selon variables sélectionnées
+  function updateMap(xVar, yVar) {
+    fetch('https://raw.githubusercontent.com/Mlm0918/Carte-leaflet/main/vdq-quartier.geojson')
+      .then(res => res.json())
+      .then(data => {
+        data.features.forEach((f,i) => f.properties.id = i);
+
+        const xVals = data.features.map(f => f.properties[xVar]);
+        const yVals = data.features.map(f => f.properties[yVar]);
+
+        const xQuant = getQuantiles(xVals);
+        const yQuant = getQuantiles(yVals);
+
+        // Crée objet id→quantile
+        const xQuantObj = {};
+        const yQuantObj = {};
+        data.features.forEach((f,i) => {
+          xQuantObj[f.properties.id] = xQuant[i];
+          yQuantObj[f.properties.id] = yQuant[i];
+        });
+
+        if(window.geojsonLayer) map.removeLayer(window.geojsonLayer);
+
+        window.geojsonLayer = L.geoJSON(data, {
+          style: styleFeature(xVar, yVar, xQuantObj, yQuantObj),
+          onEachFeature: onEachFeature
+        }).addTo(map);
+
+        map.fitBounds(window.geojsonLayer.getBounds());
+      });
+  }
+
+  // Mise à jour affichage des tooltips selon zoom
+  function updateLabelsVisibility() {
+    const currentZoom = map.getZoom();
+    if(!window.geojsonLayer) return;
+    window.geojsonLayer.eachLayer(layer => {
+      if(layer.getTooltip()) {
+        if(currentZoom >= 13) layer.openTooltip();
+        else layer.closeTooltip();
+      }
+    });
+  }
+
+  // Menus déroulants événements
+  document.getElementById('xVariable').addEventListener('change', function() {
+    updateMap(this.value, document.getElementById('yVariable').value);
+  });
+  document.getElementById('yVariable').addEventListener('change', function() {
+    updateMap(document.getElementById('xVariable').value, this.value);
+  });
+
+  // Échelle graphique km au-dessus de la légende
+  L.control.scale({
+    position: 'bottomright',
+    maxWidth: 120,
+    metric: true,
+    imperial: false
+  }).addTo(map);
+
+  // Onglet partenaires toggle
+  document.getElementById('partners').addEventListener('click', function(){
+    this.classList.toggle('open');
+  });
+
+  // Date courante format "Mois Année"
+  const monthNames = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+  const now = new Date();
+  document.getElementById('currentDate').textContent = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+
+  // Initialisation carte et labels
+  updateMap('PERIMETRE', 'SUPERFICIE');
+  map.on('zoomend', updateLabelsVisibility);
+</script>
+</body>
+</html>
