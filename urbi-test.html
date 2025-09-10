@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Carte interactive test - Projet Urbi GES</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { margin:0; padding:0; font-family: Arial, sans-serif; }
+    #map { width: 100%; height: 100vh; }
+
+    /* Titre en haut */
+    .map-title {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      font-family: "Arial Narrow", Arial, sans-serif; /* Narrow */
+      font-weight: bold;
+      transform: translateX(-50%);
+      font-size: 25px;
+      text-decoration: underline; /* souligné */
+      font-weight: bold;
+      color: white;
+      background: transparent;
+      padding: 5px 10px;
+      border-radius: 6px;
+      z-index: 1000; 
+      box-shadow: none;
+  text-shadow: 
+    1px 1px 1px black,          /* Ombre fine en bas à droite */
+   -1px -1px 1px black,         /* Ombre fine en haut à gauche */
+    1px -1px 1px black,         /* Ombre fine en haut à droite */
+   -1px 1px 1px black;          /* Ombre fine en bas à gauche */
+}
+
+    /* Onglet Partenaires */
+    .custom-control {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      font-family: Arial, sans-serif;
+      font-size: 10px;
+      color: white;
+      background: transparent;
+      padding: 5px 10px;
+      border: none;
+      box-shadow: none;
+      z-index: 2000;
+    }
+#partenaires-content a {
+color: white;            /* texte noir */
+  margin-right: 10px;      /* espace entre les liens (ajuste la valeur) */
+  font-family: Arial, sans-serif; /* police au choix */
+  font-size: 10px;         /* taille de la police */
+  text-decoration: none;  /* Enlève le soulignage */
+}
+    .custom-control button {
+      background: transparent;   /* supprime la couleur de fond */
+      border: none;              /* supprime les bordures */
+      box-shadow: none;          /* supprime l’ombre */      
+      cursor: pointer;
+      font-family: Arial, sans-serif;
+      color: white;
+      border: none;
+      box-shadow: none;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .custom-control img {
+      max-height: 40px;
+      margin: 5px;
+      vertical-align: middle;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+   .custom-control button:hover {
+  text-decoration: underline; /* petit effet au survol (optionnel) */
+}
+
+.label-nom {
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  background: none;
+  font-style: italic;
+  border: none;
+  box-shadow: none;
+  text-shadow: 
+    1px 1px 1px black,          /* Ombre fine en bas à droite */
+   -1px -1px 1px black,         /* Ombre fine en haut à gauche */
+    1px -1px 1px black,         /* Ombre fine en haut à droite */
+   -1px 1px 1px black;          /* Ombre fine en bas à gauche */
+}
+
+.leaflet-control-scale-line {
+  background: none !important;       /* supprime le fond */
+  border: 1px solid white !important; /* bord blanc fin */
+  height: 5px !important;            /* barre fine */
+}
+
+.leaflet-control-scale-line:not(:first-child) {
+  border-top: none !important;       /* supprime les lignes intermédiaires si présentes */
+}
+
+.leaflet-control-scale,
+.leaflet-control-scale-line {
+  color: white !important;           /* texte en blanc */
+  font-family: Arial, sans-serif;
+  font-size: 10px;
+  box-shadow: none !important;       /* supprime ombre */
+  background: none !important;       /* fond transparent */
+}
+  </style>
+</head>
+<body>
+
+<div style="position:absolute; top:80px; left:10px; z-index:1000; background:transparent; padding:5px; border-radius:6px; color: white; font-family: "Arial Narrow", Arial, sans-serif; font-weight: bold;">
+  <label>Variable 1:</label>
+  <select id="var1" onchange="updateMap()">
+    <option value="PERIMETRE">Périmètre</option>
+    <option value="SUPERFICIE">Superficie</option>
+    <option value="POPULATION">Population</option>
+  </select>
+  <br>
+  <label>Variable 2:</label>
+  <select id="var2" onchange="updateMap()">
+    <option value="SUPERFICIE">Superficie</option>
+    <option value="PERIMETRE">Périmètre</option>
+    <option value="POPULATION">Population</option>
+  </select>
+</div>
+
+<div id="map"></div>
+<div class="map-title">Carte interactive test - Projet Urbi GES</div>
+
+<!-- Onglet Partenaires -->
+<div class="custom-control" id="partenaires-menu">
+  <button onclick="toggleMenu('partenaires-content')">Partenaires</button>
+  <div id="partenaires-content" style="display:none; margin-top:5px;">
+    <a href="https://ieds.ulaval.ca/recherche/axes-de-developpement/relance-verte-et-economie-circulaire/urbi-ges" target="_blank">Urbi GES</a>
+    <a href="https://ieds.ulaval.ca/" target="_blank">Institut EDS</a>
+    <a href="https://www.ulaval.ca" target="_blank">Université Laval</a>
+    <a href="https://www.canada.ca/fr/environnement-changement-climatique.html" target="_blank">Environnement et Changement Climatique Canada</a>
+    <a href="https://www.futur-simple.ca/" target="_blank">Futur Simple</a>
+    <a href="https://votepour.ca/" target="_blank">Votepour.ca</a>
+  </div>
+</div>
+
+<!-- Onglet dynamique "Réalisation" -->
+<div class="custom-control" id="realisation-menu" style="bottom: 100px; left: 10px;">
+  <button onclick="toggleMenu('realisation-content')">Réalisation</button>
+  <div id="realisation-content" style="display:none;">
+    <p><strong>Auteur.trice.s:</strong><br>
+    Maryam Naghdizadeganjahromi,<br>
+    Marius Le Maréchal,<br>
+    Sébastien Bruno
+  </p>
+
+    <p><strong>Équipe de conception:</strong><br>
+    Colline Gombault,<br>
+    Valériane Champagne-Saint-Arnaud,<br>
+    Katherine Labonté,<br>
+    Stéphane Roche
+  </p>
+
+    <p id="date-creation"></p>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+  // Carte
+  let map = L.map('map').setView([46.8139, -71.2080], 12);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> &copy; <a href="https://www.carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 20
+}).addTo(map);
+  
+// Discrétisation de l’attribution avec CSS
+const style = document.createElement('style');
+style.innerHTML = `
+.leaflet-control-attribution {
+    font-size: 10px !important;
+    opacity: 0.5 !important;
+    background: transparent !important;
+}
+`;
+document.head.appendChild(style);
+
+// Échelle minimaliste blanche
+L.control.scale({
+  position: 'bottomright',  // position sur la carte
+  metric: true,             // unités en mètres / kilomètres
+  imperial: false,          // désactive les unités impériales
+  maxWidth: 150,
+  updateWhenIdle: true
+}).addTo(map);
+
+ let geojsonLayer;
+
+ // Palette bivariée (3x3 vert-gris)
+  let palette = [
+    ["#e8f5e9", "#a5d6a7", "#388e3c"], // ligne 0
+    ["#f5f5f5", "#bdbdbd", "#616161"], // ligne 1
+    ["#eeeeee", "#9e9e9e", "#212121"]  // ligne 2
+  ];
+
+ // Fonction de style dynamique
+  function getColor(v1, v2) {
+    let x = v1 > 5000 ? 2 : v1 > 2500 ? 1 : 0;
+    let y = v2 > 2000000 ? 2 : v2 > 1000000 ? 1 : 0;
+    return palette[y][x];
+  }
+  function style(feature) {
+    let var1 = document.getElementById("var1").value;
+    let var2 = document.getElementById("var2").value;
+    return {
+      fillColor: getColor(feature.properties[var1], feature.properties[var2]),
+      weight: 1,
+      color: "white",
+      fillOpacity: 0.8
+    };
+  }
+  // Toggle onglet Partenaires
+  function toggleMenu(id){
+    const content = document.getElementById(id);
+    content.style.display = (content.style.display === 'none') ? 'block' : 'none';
+  }
+
+// Remplit la date dans l'onglet Réalisation dynamiquement
+  const moisNoms = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+  const maintenant = new Date();
+  document.getElementById("date-creation").innerHTML = `<em>${moisNoms[maintenant.getMonth()]} ${maintenant.getFullYear()}</em>`;
+
+// Chargement du GeoJSON
+  $.getJSON("https://raw.githubusercontent.com/Mlm0918/Carte-leaflet/main/vdq-arrondissement.geojson", function(data) {
+    geojsonLayer = L.geoJson(data, {
+      style: style,
+      onEachFeature: function(feature, layer) {
+        layer.bindTooltip(feature.properties.NOM, { direction: "center" });
+      }
+    }).addTo(map);
+  });
+
+  // Mise à jour des couleurs quand on change de variable
+  function updateMap() {
+    geojsonLayer.setStyle(style);
+  }
+</script>
+
+</body>
+</html>
